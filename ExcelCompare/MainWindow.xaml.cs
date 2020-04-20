@@ -35,15 +35,18 @@ namespace ExcelCompare
     public  partial class MainWindow : Window
     {
         TextBoxVisibility hatbv;
+        TextBoxVisibility datbv;
         TextBoxVisibility kctbv;
         TextBoxVisibility ictbv;
         ComboBoxiVisibility hacbv;
+        ComboBoxiVisibility dacbv;
         ComboBoxiVisibility kccbv;
         ComboBoxiVisibility iccbv;
         public string exeaddress = AppDomain.CurrentDomain.BaseDirectory;
         public string savepath = string.Empty;
         public string openfileaddr = AppDomain.CurrentDomain.BaseDirectory;
         public ObservableCollection<string> ignorecolumncollection = new ObservableCollection<string>();
+        public ObservableCollection<string> dataareacollection = new ObservableCollection<string>();
         //public ObservableCollection<string> targetsheetcolumncollection = new ObservableCollection<string>();
         public ObservableCollection<string> old_excelsheetcollection = new ObservableCollection<string>();
         public ObservableCollection<string> new_excelsheetcollection = new ObservableCollection<string>();
@@ -85,9 +88,9 @@ namespace ExcelCompare
         private void BGWorker_DoWork(object sender, DoWorkEventArgs e)
         {
             int progresscount = 0;
-        //在这里执行耗时的运算。
-        //(string)e.Argument == "参数";
-        Parameter ok =(Parameter)e.Argument;
+            //在这里执行耗时的运算。
+            //(string)e.Argument == "参数";
+            Parameter ok =(Parameter)e.Argument;
             savepath = ok.SavePath;
             List<string> sheetlist = ok.Sheetlist;
             int sheetnums = sheetlist.Count;
@@ -226,6 +229,7 @@ namespace ExcelCompare
         {
             //hacbv = new ComboBoxiVisibility();
             BindingOperations.SetBinding(HeadAreaCombo, ComboBox.VisibilityProperty, new Binding("VisibilityP") { Source=hacbv= new ComboBoxiVisibility()});
+            BindingOperations.SetBinding(DataAreaCombo, ComboBox.VisibilityProperty, new Binding("VisibilityP") { Source=dacbv= new ComboBoxiVisibility()});
             BindingOperations.SetBinding(IgnoreColumnCombo, ComboBox.VisibilityProperty, new Binding("VisibilityP") { Source = iccbv = new ComboBoxiVisibility()});
             BindingOperations.SetBinding(KeyColumnCombo, ComboBox.VisibilityProperty, new Binding("VisibilityP") { Source = kccbv = new ComboBoxiVisibility()});
         }
@@ -236,6 +240,12 @@ namespace ExcelCompare
             habinding.Source = hatbv;
             habinding.Path = new PropertyPath("VisibilityP");
             BindingOperations.SetBinding(HeadAreaBox, TextBox.VisibilityProperty, habinding);
+
+            datbv = new TextBoxVisibility();
+            Binding dabinding = new Binding();
+            dabinding.Source = datbv;
+            dabinding.Path = new PropertyPath("VisibilityP");
+            BindingOperations.SetBinding(DataAreaBox, TextBox.VisibilityProperty, dabinding);
 
             kctbv = new TextBoxVisibility();
             Binding kcbinding = new Binding();
@@ -258,6 +268,7 @@ namespace ExcelCompare
                 KeyColumnCombo.ItemsSource = keycolumncollection;
                 //TargetSheetCombo.ItemsSource = targetsheetcolumncollection;
                 HeadAreaCombo.ItemsSource = headareacollection;
+                DataAreaCombo.ItemsSource = dataareacollection;
                 OldExcelSheetCombo.ItemsSource = old_excelsheetcollection;
                 NewExcelSheetCombo.ItemsSource = new_excelsheetcollection;
 
@@ -444,10 +455,15 @@ namespace ExcelCompare
         }
         public Hashtable Datatohashtable(DataTable dt,string ok)
         {
+            string databegin = DataAreaBox.Text.Trim();
+            Regex regex = new Regex("[a-zA-Z]+");
+            Regex intregex = new Regex("[0-9]+");
+            int columnmark =ColumnIndex[regex.Match(databegin).Value.ToUpper()];
+            int rowmark =Convert.ToInt32(intregex.Match(databegin).Value);
             Console.WriteLine("Datatohashtable-start" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
             Hashtable NO_Info = new Hashtable();
             List<int> keyCol = new List<int>(GetNum(keycolumn));
-            int i = 0;
+            int i = rowmark;
             while (i < dt.Rows.Count)
             {
                 string key = "";
@@ -458,7 +474,7 @@ namespace ExcelCompare
                 }
                 Pipeinfo tempinfo = new Pipeinfo();
                 PropertyInfo[] properties = tempinfo.GetType().GetProperties();
-                int j = 0;
+                int j = columnmark;
                 foreach (PropertyInfo property in properties)
                 {
                     //.ToString()
@@ -486,7 +502,12 @@ namespace ExcelCompare
         }
         public DataTable GetDataTable(string path,string excelsheet)
         {
-
+            List<int> keyCol = new List<int>(GetNum(keycolumn));
+            string filtersql = string.Empty;
+            foreach(int item in keyCol)
+            {
+                filtersql += (filtersql == "") ? string.Format("F{0}", item) : string.Format("and F{0}", item);
+            }
             Console.WriteLine("GetDataTable-start" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
             DataTable dt=new DataTable();
             string filetype = System.IO.Path.GetExtension(path);
@@ -512,7 +533,8 @@ namespace ExcelCompare
                 string strExcel = "";
                 OleDbDataAdapter myCommand = null;
                 DataSet ds = null;
-                strExcel = string.Format("select * from [{0}$] where F1 is not null ", excelsheet);
+                strExcel = string.Format("select * from [{0}$]", excelsheet);
+                // where {1} is not null filtersql
                 myCommand = new OleDbDataAdapter(strExcel, strConn);
                 ds = new DataSet();
                 myCommand.Fill(ds, "table1");
@@ -733,6 +755,87 @@ namespace ExcelCompare
             }
             return a;
         }
+        public static Dictionary<string,int> ColumnIndex = new Dictionary<string, int>()
+        {
+            {"A",1},
+            {"B",2},
+            {"C",3},
+            {"D",4},
+            {"E",5},
+            {"F",6},
+            {"G",7},
+            {"H",8},
+            {"I",9},
+            {"J",10},
+            {"K",11},
+            {"L",12},
+            {"M",13},
+            {"N",14},
+            {"O",15},
+            {"P",16},
+            {"Q",17},
+            {"R",18},
+            {"S",19},
+            {"T",20},
+            {"U",21},
+            {"V",22},
+            {"W",23},
+            {"X",24},
+            {"Y",25},
+            {"Z",26},
+            {"AA",27},
+            {"AB",28},
+            {"AC",29},
+            {"AD",30},
+            {"AE",31},
+            {"AF",32},
+            {"AG",33},
+            {"AH",34},
+            {"AI",35},
+            {"AJ",36},
+            {"AK",37},
+            {"AL",38},
+            {"AM",39},
+            {"AN",40},
+            {"AO",41},
+            {"AP",42},
+            {"AQ",43},
+            {"AR",44},
+            {"AS",45},
+            {"AT",46},
+            {"AU",47},
+            {"AV",48},
+            {"AW",49},
+            {"AX",50},
+            {"AY",51},
+            {"AZ",52},
+            {"BA",53},
+            {"BB",54},
+            {"BC",55},
+            {"BD",56},
+            {"BE",57},
+            {"BF",58},
+            {"BG",59},
+            {"BH",60},
+            {"BI",61},
+            {"BJ",62},
+            {"BK",63},
+            {"BL",64},
+            {"BM",65},
+            {"BN",66},
+            {"BO",67},
+            {"BP",68},
+            {"BQ",69},
+            {"BR",70},
+            {"BS",71},
+            {"BT",72},
+            {"BU",73},
+            {"BV",74},
+            {"BW",75},
+            {"BX",76},
+            {"BY",77},
+            {"BZ",78}
+        };
         public string GetHeadArea(string area)
         {
             area = area.ToUpper();
@@ -939,7 +1042,7 @@ namespace ExcelCompare
                 string content = LabelItem.Content.ToString();
                 switch (content)
                 {
-                    case "Head     Area":
+                    case "Head Area":
                         hatbv.VisibilityP = Visibility.Visible;
                         hacbv.VisibilityP = Visibility.Collapsed;
                         HeadAreaBox.Focus();
@@ -965,6 +1068,11 @@ namespace ExcelCompare
                         {
                             SaveFolder.Text = m_Dialog.SelectedPath.Trim();
                         }
+                        break;
+                    case "Data Area":
+                        datbv.VisibilityP = Visibility.Visible;
+                        dacbv.VisibilityP = Visibility.Collapsed;
+                        DataAreaBox.Focus();
                         break;
                 }
 
@@ -996,6 +1104,11 @@ namespace ExcelCompare
                         ictbv.VisibilityP = Visibility.Collapsed;
                         iccbv.VisibilityP = Visibility.Visible;
                         CheckNewItem(ref ignorecolumncollection, TextBoxItem.Text,IgnoreColumnCombo);
+                        break;
+                    case "DataAreaBox":
+                        datbv.VisibilityP = Visibility.Collapsed;
+                        dacbv.VisibilityP = Visibility.Visible;
+                        CheckNewItem(ref dataareacollection, TextBoxItem.Text, DataAreaCombo);
                         break;
                 }
 

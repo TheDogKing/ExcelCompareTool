@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Excel Compare Tool" Height="265" Width="700" ResizeMode="NoResize" >
+        Title="Excel Compare Tool" Height="450" Width="700" ResizeMode="NoResize" >
     <Window.Resources>
         <Style TargetType="Label">
             <Setter Property="HorizontalContentAlignment" Value="Center"></Setter>
@@ -19,83 +19,109 @@
         </Style>
         <Style TargetType="ComboBox">
             <Setter Property="Margin" Value="3"></Setter>
+            <Setter Property="Width" Value="300"></Setter>
         </Style>
-        <Style TargetType="TextBox" x:Key="box">
+        <Style TargetType="TextBox">
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Margin" Value="3,3"/>
-            <!----><!--<Setter Property="BorderThickness" Value="0"/>-->
+            <Setter Property="Visibility" Value="Collapsed"/>
+
+            <!---->
             <!--<Setter Property="TextDecorations" Value="underline"/>-->
             <!---->
         </Style>
 
-    </Window.Resources>
+        <Style TargetType="WrapPanel" >
+            <Setter Property="Margin" Value="11"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+        </Style>
+        <Style TargetType="Border">
+            <Setter Property="BorderBrush" Value="Black"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Margin" Value="2,8"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
 
+    </Window.Resources>
     <Grid Margin="10" Name="gridmain" Focusable="True"  Background="White">
         <Grid.RowDefinitions>
-            <RowDefinition Height="0.27*"></RowDefinition>
-            <RowDefinition Height="0.245*"></RowDefinition>
-            <RowDefinition Height="0.245*"></RowDefinition>
-            <RowDefinition Height="0.24*"></RowDefinition>
+            <RowDefinition Height="*"></RowDefinition>
+            <RowDefinition Height="*"></RowDefinition>
+            <RowDefinition Height="*"></RowDefinition>
+            <RowDefinition Height="*"></RowDefinition>
+            <RowDefinition Height="*"></RowDefinition>
+            <RowDefinition Height="*"></RowDefinition>
+            <RowDefinition Height="*"></RowDefinition>
+            <RowDefinition Height="*"></RowDefinition>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="0.13*"></ColumnDefinition>
             <ColumnDefinition Width="0.72*"></ColumnDefinition>
             <ColumnDefinition Width="0.15*"></ColumnDefinition>
         </Grid.ColumnDefinitions>
-        <StackPanel Grid.ColumnSpan="3" Name="SelectArea">
-            <TextBox Width="0" Height="0" Margin="0" Name="tb"></TextBox>
+
+        <StackPanel Grid.ColumnSpan="3" Name="SelectArea" Grid.RowSpan="5">
+            <TextBox x:Name="tb" Margin="0" Visibility="Collapsed"/>
             <WrapPanel>
-                <Label Content="Key Column"   HorizontalAlignment="Left" Width="85" PreviewMouseDown="Label_PreviewMouseDown">
-                    <!--<TextBox Text="Key Column"></TextBox>-->
-                </Label>
-            <TextBox Width="232" Margin="3" Visibility="Collapsed" Name="KeyColumnBox" LostFocus="TextBox_LostFocus">B</TextBox>
-                <ComboBox Width="232" Name="KeyColumnCombo"/>
-                <Label HorizontalAlignment="Left" Content="Ignore Column" PreviewMouseDown="Label_PreviewMouseDown">
-                    <!--<TextBox Text="Compare Column"></TextBox>-->
-                </Label>
-                <TextBox Width="203" Margin="3" Visibility="Collapsed" Name="IgnoreColumnBox" LostFocus="TextBox_LostFocus">A</TextBox>
-                <ComboBox Width="203" Name="IgnoreColumnCombo"/>
+                <Label  Content="Head Area"   PreviewMouseDown="Label_PreviewMouseDown"/>
+                <TextBox Name="HeadAreaBox">A7:Y10</TextBox>
+                <ComboBox Name="HeadAreaCombo"/>
             </WrapPanel>
+
             <WrapPanel>
-                <Label  Content="Head     Area"  HorizontalAlignment="Left" PreviewMouseDown="Label_PreviewMouseDown">
-                    <!--<TextBox Text="Head Area" PreviewMouseDown="TextBox_PreviewMouseDown"></TextBox>-->
-                </Label>
-                <TextBox Width="232" Margin="3" Visibility="Collapsed" Name="HeadAreaBox" LostFocus="TextBox_LostFocus">A7:Y10</TextBox>
-                <ComboBox Width="232" Name="HeadAreaCombo"/>
-                <Label  Content="Save Folder" HorizontalAlignment="Left" Width="98" PreviewMouseDown="Label_PreviewMouseDown"/>
+                <Label  Content="Data Area"   PreviewMouseDown="Label_PreviewMouseDown"/>
+                <TextBox Name="DataAreaBox">C7</TextBox>
+                <ComboBox Name="DataAreaCombo"/>
+            </WrapPanel>
+
+            <WrapPanel>
+                <Label Content="Key Column"  PreviewMouseDown="Label_PreviewMouseDown"/>
+                <TextBox Name="KeyColumnBox">B</TextBox>
+                <ComboBox Name="KeyColumnCombo"/>
+            </WrapPanel>
+
+            <WrapPanel>
+                <Label  Content="Ignore Column" PreviewMouseDown="Label_PreviewMouseDown"/>
+                <TextBox Name="IgnoreColumnBox">A</TextBox>
+                <ComboBox  Name="IgnoreColumnCombo"/>
+            </WrapPanel>
+
+            <WrapPanel>
+                <Label  Content="Save Folder"  PreviewMouseDown="Label_PreviewMouseDown"/>
                 <Border BorderBrush="Black" BorderThickness="1" Margin="2">
-                    <TextBox Name="SaveFolder" MaxWidth="203" MinWidth="203"></TextBox>
+                    <TextBox Name="SaveFolder"  MinWidth="300" Visibility="Visible"></TextBox>
                 </Border>
             </WrapPanel>
         </StackPanel>
 
-        <Label Grid.Column="0" Grid.Row="1" >Old Excel</Label>
-        <Border Grid.Column="1" Grid.Row="1" BorderBrush="Black" BorderThickness="1" Margin="2,8" Padding="3">
-            <WrapPanel>
-                <Viewbox HorizontalAlignment="Left" Width="330" Margin="2,0">
+        <Label Grid.Column="0" Grid.Row="5" >Old Excel</Label>
+        <Border Grid.Column="1" Grid.Row="5">
+            <WrapPanel Margin="0">
+                <Viewbox HorizontalAlignment="Left" Width="330" Margin="5,0">
                     <TextBlock x:Name="oldadd"/>
                 </Viewbox>
-                <ComboBox MinWidth="125" x:Name="OldExcelSheetCombo"/>
+                <ComboBox MaxWidth="125" MinWidth="125" x:Name="OldExcelSheetCombo"/>
             </WrapPanel>
         </Border>
-        <Button Grid.Column="2" Grid.Row="1" Name="BrowseOld" Click="Browse_Excel" >Browse</Button>
+        <Button Grid.Column="2" Grid.Row="5" Name="BrowseOld" Click="Browse_Excel" >Browse</Button>
 
-        <Label Grid.Row="2">New Excel</Label>
-        <Border Grid.Column="1" Grid.Row="2" BorderBrush="Black" BorderThickness="1" Margin="2,8" Padding="3">
-            <WrapPanel>
-                <Viewbox HorizontalAlignment="Left"  Width="330" Margin="2,0">
+        <Label Grid.Row="6">New Excel</Label>
+        <Border Grid.Column="1" Grid.Row="6" >
+            <WrapPanel Margin="0">
+                <Viewbox HorizontalAlignment="Left"  Width="330" Margin="5,0">
                     <TextBlock x:Name="newadd"></TextBlock>
                 </Viewbox>
-                <ComboBox MinWidth="125" Name="NewExcelSheetCombo"></ComboBox>
+                <ComboBox MaxWidth="125" MinWidth="125" Name="NewExcelSheetCombo"></ComboBox>
             </WrapPanel>
         </Border>
-        <Button   Grid.Column="2" Grid.Row="2"  Name="BrowseNew" Click="Browse_Excel">Browse</Button>
-        <StackPanel Grid.Row="3"  Grid.ColumnSpan="3"  MouseDown="Window_MouseDown" Background="White">
+        <Button   Grid.Column="2" Grid.Row="6"  Name="BrowseNew" Click="Browse_Excel">Browse</Button>
+        <StackPanel Grid.Row="7"  Grid.ColumnSpan="3"  MouseDown="Window_MouseDown" Background="White">
             <WrapPanel HorizontalAlignment="Right" Margin="0">
-                <Label>比对所有同名sheet</Label>
-                <CheckBox VerticalAlignment="Center" Name="IsAllCompare"></CheckBox>
+                <Label HorizontalAlignment="Right">比对所有同名sheet</Label>
+                <CheckBox VerticalAlignment="Center" Name="IsAllCompare" HorizontalAlignment="Right" Margin="3,0"></CheckBox>
+                <Button Width="100" Click="Compare_Click" Name="CompareButton" HorizontalAlignment="Right" Margin="0" Height="20">Compare</Button>
             </WrapPanel>
-            <Button Width="100" Click="Compare_Click" Name="CompareButton" HorizontalAlignment="Right" Margin="0" Height="20">Compare</Button>
+            <!--<ProgressBar Maximum="100" Minimum="0" Width="700"  Height="20" Name="progressbar"/>-->
         </StackPanel>
     </Grid>
 </Window>
