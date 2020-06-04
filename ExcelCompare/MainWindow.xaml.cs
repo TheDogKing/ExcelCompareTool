@@ -35,11 +35,11 @@ namespace ExcelCompare
     public  partial class MainWindow : Window
     {
         TextBoxVisibility hatbv;
-        TextBoxVisibility datbv;
+        //TextBoxVisibility datbv;
         TextBoxVisibility kctbv;
         TextBoxVisibility ictbv;
         ComboBoxiVisibility hacbv;
-        ComboBoxiVisibility dacbv;
+        //ComboBoxiVisibility dacbv;
         ComboBoxiVisibility kccbv;
         ComboBoxiVisibility iccbv;
         public string exeaddress = AppDomain.CurrentDomain.BaseDirectory;
@@ -56,6 +56,7 @@ namespace ExcelCompare
         public string keycolumn;
         public string ignorecolumn;
         public string headarea;
+        public string dataarea;
         WatchPath watchpath = new WatchPath();
         Excel.Application excelapp;
         Excel.Application excelapphead;
@@ -64,8 +65,10 @@ namespace ExcelCompare
         public string address = "";
 
         private BackgroundWorker bw = new BackgroundWorker();
-        public Progress progressbar;
-
+        //public Progress progressbar;
+        public int headareaheight = 0;
+        public Regex regex = new Regex("[a-zA-Z]+");
+        public Regex intregex = new Regex("[0-9]+");
         public MainWindow()
         {
             InitializeComponent();
@@ -122,18 +125,18 @@ namespace ExcelCompare
                     DataTable newdata = func.EndInvoke(newref);
                     DataTable olddata = func.EndInvoke(oldref);
                     progresscount += peervalue;
-                    bw.ReportProgress(progresscount);
+                    bw.ReportProgress(progresscount,"获取Excel数据");
                     //建立新的excel
                     Func<List<Excel.Worksheet>> createexcel = CreateExcel;
                     IAsyncResult excelref = createexcel.BeginInvoke(null, null);
 
                     //比对excel信息
-                    Func<DataTable, string, Hashtable> getno_info = Datatohashtable;
+                    Func<DataTable, string, Dictionary<string, List<string>>> getno_info = Datatohashtable;
                     IAsyncResult newnoref = getno_info.BeginInvoke(newdata, "新", null, null);
                     IAsyncResult oldnoref = getno_info.BeginInvoke(olddata, "旧", null, null);
-                    Hashtable newno_info = getno_info.EndInvoke(newnoref);
-                    Hashtable oldno_info = getno_info.EndInvoke(oldnoref);
-                    List<Hashtable> result = Compare(oldno_info, newno_info);
+                    Dictionary<string, List<string>> newno_info = getno_info.EndInvoke(newnoref);
+                    Dictionary<string, List<string>> oldno_info = getno_info.EndInvoke(oldnoref);
+                    List<Dictionary<string, List<string>>> result = Compare(oldno_info, newno_info);
 
                     int count = 0;
                     AsyncCallback IsEnd = p =>
@@ -170,14 +173,15 @@ namespace ExcelCompare
                         bw.ReportProgress(progresscount);
                         continue;
                     }
-                    Action<Excel.Worksheet, Hashtable, bool> PrintThread = Print;
+                    Action<Excel.Worksheet, Dictionary<string, List<string>>, bool> PrintThread = Print;
                     IAsyncResult sheet1=PrintThread.BeginInvoke(worksheets[0], result[0], false, IsEnd, null);
                     IAsyncResult sheet2 = PrintThread.BeginInvoke(worksheets[1], result[1], false, IsEnd, null);
                     IAsyncResult sheet3 = PrintThread.BeginInvoke(worksheets[2], result[2], true, IsEnd, null);
                     PrintThread.EndInvoke(sheet1);
                     PrintThread.EndInvoke(sheet2);
                     PrintThread.EndInvoke(sheet3);
-                    Thread.Sleep(2000);
+                    Thread.Sleep(3000);
+                    Clipboard.Clear();
                 }
                 catch (Exception ex)
                 {
@@ -195,22 +199,27 @@ namespace ExcelCompare
                 
             }
             Thread.Sleep(2000);
-            ExcelMgr.KillExcelApp(excelapp);
             ExcelMgr.KillExcelApp(excelapphead);
+            ExcelMgr.KillExcelApp(excelapp);
+            bw.ReportProgress(100);
             MessageBox.Show("结果文件生成在" + savepath, "成功", MessageBoxButton.OK);
-            SaveConfig();
         }
         public void BgWorker_ProgessChanged(object sender, ProgressChangedEventArgs e)
         {
+            progressLabel.Content = "1";
+            for (int i= (int)progressbar.Value; i<=e.ProgressPercentage;i++)
+            {
+                Thread.Sleep(10);
+                progressbar.Value =i;
+            }
             //(string)e.UserState=="Working"
-            progressbar.progressbar.Value = e.ProgressPercentage;
-            progressbar.detail.Content = e.ProgressPercentage.ToString()+"%";
+            //progressbar.detail.Content = e.ProgressPercentage.ToString()+"%";
             //progressbar.Value = e.ProgressPercentage;//取得进度更新控件，不用Invoke了
         }
         public void BgWorker_WorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
-            progressbar.Close();
-            Clipboard.Clear();
+            CompareButton.IsEnabled = true;
+            //progressbar.Close();
             //var collections = Application.Current.Windows;
             ////e.Error == null 是否发生错误
             ////e.Result
@@ -229,7 +238,7 @@ namespace ExcelCompare
         {
             //hacbv = new ComboBoxiVisibility();
             BindingOperations.SetBinding(HeadAreaCombo, ComboBox.VisibilityProperty, new Binding("VisibilityP") { Source=hacbv= new ComboBoxiVisibility()});
-            BindingOperations.SetBinding(DataAreaCombo, ComboBox.VisibilityProperty, new Binding("VisibilityP") { Source=dacbv= new ComboBoxiVisibility()});
+            //BindingOperations.SetBinding(DataAreaCombo, ComboBox.VisibilityProperty, new Binding("VisibilityP") { Source=dacbv= new ComboBoxiVisibility()});
             BindingOperations.SetBinding(IgnoreColumnCombo, ComboBox.VisibilityProperty, new Binding("VisibilityP") { Source = iccbv = new ComboBoxiVisibility()});
             BindingOperations.SetBinding(KeyColumnCombo, ComboBox.VisibilityProperty, new Binding("VisibilityP") { Source = kccbv = new ComboBoxiVisibility()});
         }
@@ -241,11 +250,11 @@ namespace ExcelCompare
             habinding.Path = new PropertyPath("VisibilityP");
             BindingOperations.SetBinding(HeadAreaBox, TextBox.VisibilityProperty, habinding);
 
-            datbv = new TextBoxVisibility();
-            Binding dabinding = new Binding();
-            dabinding.Source = datbv;
-            dabinding.Path = new PropertyPath("VisibilityP");
-            BindingOperations.SetBinding(DataAreaBox, TextBox.VisibilityProperty, dabinding);
+            //datbv = new TextBoxVisibility();
+            //Binding dabinding = new Binding();
+            //dabinding.Source = datbv;
+            //dabinding.Path = new PropertyPath("VisibilityP");
+            //BindingOperations.SetBinding(DataAreaBox, TextBox.VisibilityProperty, dabinding);
 
             kctbv = new TextBoxVisibility();
             Binding kcbinding = new Binding();
@@ -268,7 +277,7 @@ namespace ExcelCompare
                 KeyColumnCombo.ItemsSource = keycolumncollection;
                 //TargetSheetCombo.ItemsSource = targetsheetcolumncollection;
                 HeadAreaCombo.ItemsSource = headareacollection;
-                DataAreaCombo.ItemsSource = dataareacollection;
+                //DataAreaCombo.ItemsSource = dataareacollection;
                 OldExcelSheetCombo.ItemsSource = old_excelsheetcollection;
                 NewExcelSheetCombo.ItemsSource = new_excelsheetcollection;
 
@@ -372,19 +381,25 @@ namespace ExcelCompare
         }
         private void Compare_Click(object sender, RoutedEventArgs e)
         {
-            if(!Directory.Exists(SaveFolder.Text))
+            CompareButton.IsEnabled = false;
+            if (!Directory.Exists(SaveFolder.Text))
             {
                 MessageBox.Show("所选地址不存在，请点击Save Folder并从新选取", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
+            progressbar.Value = 3;
             Parameter ok = new Parameter();
             keycolumn = KeyColumnCombo.Text;
             ignorecolumn = IgnoreColumnCombo.Text;
             headarea = HeadAreaCombo.Text;
+            //dataarea = DataAreaCombo.Text;
             address = oldadd.DataContext.ToString();
             ok.NewAdd = newadd.DataContext.ToString();
             ok.OldAdd = oldadd.DataContext.ToString();
             ok.SavePath = SaveFolder.Text;
+            Match hastart=intregex.Match( headarea.Split(':')[0]);
+            Match haend=intregex.Match( headarea.Split(':')[1]);
+            headareaheight = Convert.ToInt32(haend.Value)- Convert.ToInt32 (hastart.Value)+1;
             List<string> lcolComparetemp = new List<string>();
             if (IsAllCompare.IsChecked.Value)
             {
@@ -409,7 +424,7 @@ namespace ExcelCompare
                 return;
             }
             ok.Sheetlist = lcolComparetemp;
-            progressbar = new Progress();
+            //progressbar = new Progress();
 
             excelapp = new Excel.Application
             {
@@ -424,7 +439,7 @@ namespace ExcelCompare
             };
 
             bw.RunWorkerAsync(ok);
-            progressbar.ShowDialog();
+            //progressbar.ShowDialog();
             string savename = SaveFolder.Text + "\\" + oldadd.Text.Split('.')[0]+".txt";
             if (System.IO.File.Exists(savename))
             {
@@ -453,47 +468,51 @@ namespace ExcelCompare
             SaveConfig();
             //System.Diagnostics.Process.Start(SaveFolder.Text);
         }
-        public Hashtable Datatohashtable(DataTable dt,string ok)
+        public Dictionary<string,List<string>> Datatohashtable(DataTable dt,string ok)
         {
-            string databegin = DataAreaBox.Text.Trim();
-            Regex regex = new Regex("[a-zA-Z]+");
-            Regex intregex = new Regex("[0-9]+");
-            int columnmark =ColumnIndex[regex.Match(databegin).Value.ToUpper()];
-            int rowmark =Convert.ToInt32(intregex.Match(databegin).Value);
+            string dataStart = headarea.Split(':')[0];
+            string dataend = headarea.Split(':')[1];
+            int columnStart =ColumnIndex[regex.Match(dataStart).Value.ToUpper()];
+            int columnEnd = ColumnIndex[regex.Match(dataend).Value.ToUpper()];
+            int rowmark = Convert.ToInt32(intregex.Match(dataend).Value);
             Console.WriteLine("Datatohashtable-start" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
-            Hashtable NO_Info = new Hashtable();
+            Dictionary<string, List<string>> NO_Info = new Dictionary<string, List<string>>();
             List<int> keyCol = new List<int>(GetNum(keycolumn));
             int i = rowmark;
             while (i < dt.Rows.Count)
             {
                 string key = "";
-                if (dt.Rows[i][0].ToString() == "")
+                if (dt.Rows[i][keyCol[0] - columnStart].ToString() == "")
                 {
                     i++;
                     continue;
                 }
-                Pipeinfo tempinfo = new Pipeinfo();
-                PropertyInfo[] properties = tempinfo.GetType().GetProperties();
-                int j = columnmark;
-                foreach (PropertyInfo property in properties)
+                //Pipeinfo tempinfo = new Pipeinfo();
+                //PropertyInfo[] properties = tempinfo.GetType().GetProperties();
+                List<string> lcoltempinfo = new List<string>();
+                //foreach (PropertyInfo property in properties)
+                //{
+                //    //.ToString()
+                //    string tempproperty = "";
+                //    tempproperty = dt.Rows[i][j].ToString();
+                //    property.SetValue(tempinfo, tempproperty, null);
+                //    j++;
+                //}
+                for (int j = columnStart - 1; j<= columnEnd; j++)
                 {
-                    //.ToString()
-                    string tempproperty = "";
-                    tempproperty = dt.Rows[i][j].ToString();
-                    property.SetValue(tempinfo, tempproperty, null);
-                    j++;
+                    lcoltempinfo.Add(dt.Rows[i][j].ToString());
                 }
                 foreach (int item in keyCol)
                 {
-                    key += properties[item - 65].GetValue(tempinfo);
+                    key += lcoltempinfo[item-columnStart];
                 }
-                if(NO_Info.Contains(key))
+                if(NO_Info.ContainsKey(key))
                 {
                     throw new Exception(string.Format("请检查版本较{0}Excel表格，表内此关键字{1}存在多处,请重新设置Key Column",ok,key));
                 }
                 else
                 {
-                    NO_Info.Add(key, tempinfo);
+                    NO_Info.Add(key, lcoltempinfo);
                 }
                 i++;
             }
@@ -502,12 +521,12 @@ namespace ExcelCompare
         }
         public DataTable GetDataTable(string path,string excelsheet)
         {
-            List<int> keyCol = new List<int>(GetNum(keycolumn));
-            string filtersql = string.Empty;
-            foreach(int item in keyCol)
-            {
-                filtersql += (filtersql == "") ? string.Format("F{0}", item) : string.Format("and F{0}", item);
-            }
+            //List<int> keyCol = new List<int>(GetNum(keycolumn));
+            //string filtersql = string.Empty;
+            //foreach(int item in keyCol)
+            //{
+            //    filtersql += (filtersql == "") ? string.Format("F{0}", item) : string.Format("and F{0}", item);
+            //}
             Console.WriteLine("GetDataTable-start" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
             DataTable dt=new DataTable();
             string filetype = System.IO.Path.GetExtension(path);
@@ -515,10 +534,10 @@ namespace ExcelCompare
             switch (filetype)
             {
                 case ".xls":
-                    strConn = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=" + path + ";" + "Extended Properties=\"Excel 8.0;HDR=yes;IMEX=1;\"";
+                    strConn = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=" + path + ";" + "Extended Properties=\"Excel 8.0;HDR=No;IMEX=1;\"";
                     break;
                 case ".xlsx":
-                    strConn = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" + path + ";" + "Extended Properties=\"Excel 12.0;HDR=yes;IMEX=1;\"";
+                    strConn = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" + path + ";" + "Extended Properties=\"Excel 12.0;HDR=No;IMEX=1;\"";
                     //此连接可以操作.xls与.xlsx文件 (支持Excel2003 和 Excel2007 的连接字符串)  
                     //备注： "HDR=yes;"是说Excel文件的第一行是列名而不是数，"HDR=No;"正好与前面的相反。"IMEX=1 "如果列中的数据类型不一致，使用"IMEX=1"可必免数据类型冲突。 
                     break;
@@ -554,40 +573,43 @@ namespace ExcelCompare
             Console.WriteLine("GetDataTable-end" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
             return dt;
         }
-        public List<Hashtable> Compare(Hashtable oldtable, Hashtable newtable)
+        public List<Dictionary<string, List<string>>> Compare(Dictionary<string, List<string>> oldtable, Dictionary<string, List<string>> newtable)
         {
-            Hashtable delitems = new Hashtable();
-            Hashtable newitems = new Hashtable();
-            Hashtable updateitems = new Hashtable();
+            Dictionary<string, List<string>> delitems = new Dictionary<string, List<string>>();
+            Dictionary<string, List<string>> newitems = new Dictionary<string, List<string>>();
+            Dictionary<string, List<string>> updateitems = new Dictionary<string, List<string>>();
             List<int> ignorelist = GetNum(ignorecolumn);
-            for(int x=0;x<ignorelist.Count;x++)
+            //for(int x=0;x<ignorelist.Count;x++)
+            //{
+            //    ignorelist[x] -= 65;
+            //}
+            foreach (KeyValuePair<string,List<string>> item in oldtable)
             {
-                ignorelist[x] -= 65;
-            }
-            foreach (DictionaryEntry temp in oldtable)
-            {
-                if (!newtable.ContainsKey(temp.Key))
+                if (!newtable.ContainsKey(item.Key))
                 {
-                    delitems.Add(temp.Key, temp.Value);
+                    delitems.Add(item.Key, item.Value);
                 }
                 else
                 {
-                    Pipeinfo oldpipeinfo = (Pipeinfo)temp.Value;
-                    Pipeinfo newpipeinfo = (Pipeinfo)newtable[temp.Key];
-                    Pipeinfo updatepipeinfo = new Pipeinfo(newpipeinfo);
-                    PropertyInfo[] oldproperties = oldpipeinfo.GetType().GetProperties();
-                    PropertyInfo[] newproperties = newpipeinfo.GetType().GetProperties();
+                    //Pipeinfo oldpipeinfo = (Pipeinfo)temp.Value;
+                    //Pipeinfo newpipeinfo = (Pipeinfo)newtable[temp.Key];
+                    //Pipeinfo updatepipeinfo = new Pipeinfo(newpipeinfo);
+                    //PropertyInfo[] oldproperties = oldpipeinfo.GetType().GetProperties();
+                    //PropertyInfo[] newproperties = newpipeinfo.GetType().GetProperties();
+                    List<string> olditeminfo = item.Value;
+                    List<string> newiteminfo = newtable[item.Key];
+                    List<string> updateinfo = new List<string>(newiteminfo);
+
                     Boolean IsUpdated = false;
-                    int isignore = 0;
-                    foreach (PropertyInfo Propertyinfo in oldproperties)
+                    for (int i =0;i<newiteminfo.Count;i++)
                     {
-                        string oldvalue = Propertyinfo.GetValue(oldpipeinfo).ToString();
-                        string newvalue = Propertyinfo.GetValue(newpipeinfo).ToString();
+                        string oldvalue = olditeminfo[i];
+                        string newvalue = newiteminfo[i];
                         try
                         {
                             double doldvalue = Convert.ToDouble(oldvalue);
                             double dnewvalue = Convert.ToDouble(newvalue);
-                            if (doldvalue != dnewvalue && !ignorelist.Contains(isignore))
+                            if (doldvalue != dnewvalue && !ignorelist.Contains(i+1))
                             {
                                 if (string.IsNullOrEmpty(oldvalue) | string.IsNullOrWhiteSpace(oldvalue))
                                 {
@@ -598,12 +620,12 @@ namespace ExcelCompare
                                     newvalue = "空";
                                 }
                                 IsUpdated = true;
-                                updatepipeinfo.GetType().GetProperty(Propertyinfo.Name).SetValue(updatepipeinfo, string.Format("{0}->{1}", oldvalue, newvalue));
+                                updateinfo[i] = string.Format("{0}->{1}", oldvalue, newvalue);
                             }
                         }
                         catch (Exception)
                         {
-                            if (oldvalue != newvalue && !ignorelist.Contains(isignore))
+                            if (oldvalue != newvalue && !ignorelist.Contains(i+1))
                             {
                                 if (string.IsNullOrEmpty(oldvalue) | string.IsNullOrWhiteSpace(oldvalue))
                                 {
@@ -614,25 +636,24 @@ namespace ExcelCompare
                                     newvalue = "空";
                                 }
                                 IsUpdated = true;
-                                updatepipeinfo.GetType().GetProperty(Propertyinfo.Name).SetValue(updatepipeinfo, string.Format("{0}->{1}", oldvalue, newvalue));
+                                updateinfo[i] = string.Format("{0}->{1}", oldvalue, newvalue);
                             }
                         }
-                        isignore++;
                     }
                     if (IsUpdated)
                     {
-                        updateitems.Add(temp.Key, updatepipeinfo);
+                        updateitems.Add(item.Key, updateinfo);
                     }
                 }
             }
-            foreach (DictionaryEntry temp in newtable)
+            foreach (KeyValuePair<string, List<string>> temp in newtable)
             {
                 if (!oldtable.ContainsKey(temp.Key))
                 {
                     newitems.Add(temp.Key, temp.Value);
                 }
             }
-            List<Hashtable> result = new List<Hashtable>
+            List<Dictionary<string, List<string>>> result = new List<Dictionary< string, List< string >>>
             {
                 newitems,
                 delitems,
@@ -640,29 +661,30 @@ namespace ExcelCompare
             };
             return result;
         }
-        public void Print(Excel.Worksheet worksheet, Hashtable items, Boolean Isupdate)
+        public void Print(Excel.Worksheet worksheet, Dictionary<string, List<string>> items, Boolean Isupdate)
         {
             //worksheet.Activate();
             worksheet.Columns["B"].NumberFormat = "@";
             Console.WriteLine("print-start" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
-            int rowno = 5;
+            int rowno = headareaheight+1;
             if(items.Count==0)
             {
                 worksheet.Delete();
                 return;
             }
-            foreach (DictionaryEntry temp in items)
+            foreach (KeyValuePair<string,List<string>> item in items)
             {
-                Pipeinfo tempinfo = (Pipeinfo)temp.Value;
-                PropertyInfo[] properties = tempinfo.GetType().GetProperties();
+                //Pipeinfo tempinfo = (Pipeinfo)temp.Value;
+                //PropertyInfo[] properties = tempinfo.GetType().GetProperties();
+                List<string> lcoliteminfo = item.Value;
                 int colno = 1;
-                foreach (PropertyInfo Propertyinfo in properties)
+                foreach (string iteminfo in lcoliteminfo)
                 {
-                    string value = Propertyinfo.GetValue(tempinfo).ToString();
-                    worksheet.Cells[colno][rowno].value  = value;
+                    //string value = Propertyinfo.GetValue(tempinfo).ToString();
+                    worksheet.Cells[colno][rowno].value  = iteminfo;
                     if (Isupdate)
                     {
-                        if (value.Contains("->"))
+                        if (iteminfo.Contains("->"))
                         {
                             worksheet.Cells[colno][rowno].Interior.ColorIndex = 35;
                         }
@@ -715,13 +737,16 @@ namespace ExcelCompare
                 worksheethead = workbookhead.Sheets[targetsheet];
                 //string selectitem = HeadArea.Items.CurrentItem.ToString();
                 headarea = headarea.Split(';')[0];
+                worksheethead.Activate();
                 Excel.Range ran = worksheethead.Range[headarea];
                 ran.Copy();
+                Thread.Sleep(10000);
                 foreach (Excel.Worksheet worksheet in worksheets)
                 {
                     worksheet.Activate();
                     Excel.Range newran = worksheet.Range[GetHeadArea(headarea)];
                     newran.Select();
+                    //worksheet.PasteSpecial("文本",false,false);
                     newran.PasteSpecial(Excel.XlPasteType.xlPasteFormats, Excel.XlPasteSpecialOperation.xlPasteSpecialOperationAdd, Type.Missing, Type.Missing);
                 }
             }
@@ -734,132 +759,52 @@ namespace ExcelCompare
                 workbookhead.Close(false);
             }
         }
-        public List<int> GetNum(string x)
+        public List<int> GetNum(string lstrcolumn)
         {
-            List<int> a = new List<int>();
-            string[] s;
-            x.Trim();
-            x.ToUpper();
-            s = x.Split(';');
+            List<int> lcolindex = new List<int>();
+            string[] lcoltemp;
+            lstrcolumn.Trim();
+            lstrcolumn.ToUpper();
+            lcoltemp = lstrcolumn.Split(';');
             int i = 0;
-            foreach (string item in s)
+            foreach (string item in lcoltemp)
             {
                 if(item=="")
                 {
                     break;
                 }
-                byte[] array = new byte[1];
-                array = Encoding.ASCII.GetBytes(s[i]);
-                a.Add(array[0]);
+                //byte[] array = new byte[1];
+                //array = Encoding.ASCII.GetBytes(s[i]);
+                int index=ColumnIndex[item];
+                lcolindex.Add(index);
+                //array[0]
                 i++;
             }
-            return a;
+            return lcolindex;
         }
-        public static Dictionary<string,int> ColumnIndex = new Dictionary<string, int>()
-        {
-            {"A",1},
-            {"B",2},
-            {"C",3},
-            {"D",4},
-            {"E",5},
-            {"F",6},
-            {"G",7},
-            {"H",8},
-            {"I",9},
-            {"J",10},
-            {"K",11},
-            {"L",12},
-            {"M",13},
-            {"N",14},
-            {"O",15},
-            {"P",16},
-            {"Q",17},
-            {"R",18},
-            {"S",19},
-            {"T",20},
-            {"U",21},
-            {"V",22},
-            {"W",23},
-            {"X",24},
-            {"Y",25},
-            {"Z",26},
-            {"AA",27},
-            {"AB",28},
-            {"AC",29},
-            {"AD",30},
-            {"AE",31},
-            {"AF",32},
-            {"AG",33},
-            {"AH",34},
-            {"AI",35},
-            {"AJ",36},
-            {"AK",37},
-            {"AL",38},
-            {"AM",39},
-            {"AN",40},
-            {"AO",41},
-            {"AP",42},
-            {"AQ",43},
-            {"AR",44},
-            {"AS",45},
-            {"AT",46},
-            {"AU",47},
-            {"AV",48},
-            {"AW",49},
-            {"AX",50},
-            {"AY",51},
-            {"AZ",52},
-            {"BA",53},
-            {"BB",54},
-            {"BC",55},
-            {"BD",56},
-            {"BE",57},
-            {"BF",58},
-            {"BG",59},
-            {"BH",60},
-            {"BI",61},
-            {"BJ",62},
-            {"BK",63},
-            {"BL",64},
-            {"BM",65},
-            {"BN",66},
-            {"BO",67},
-            {"BP",68},
-            {"BQ",69},
-            {"BR",70},
-            {"BS",71},
-            {"BT",72},
-            {"BU",73},
-            {"BV",74},
-            {"BW",75},
-            {"BX",76},
-            {"BY",77},
-            {"BZ",78}
-        };
+        private Dictionary<string, int> ColumnIndex = new Dictionary<string, int>();
         public string GetHeadArea(string area)
         {
             area = area.ToUpper();
-            string numpattern = @"\d+";
             List<int> num = new List<int>();
-            foreach (Match something in Regex.Matches(area, numpattern))
+            foreach (Match something in intregex.Matches(area))
             {
                 num.Add(Convert.ToInt32(something.Value));
             }
-            string columnpattern = @"[A-Z]+";
             List<string> column = new List<string>();
-            foreach (Match something in Regex.Matches(area, columnpattern))
+            foreach (Match something in regex.Matches(area))
             {
                 column.Add(something.Value);
             }
-            int x = GetNum(column[1])[0] - GetNum(column[0])[0];
+            int x = GetNum(column[1])[0] - GetNum(column[0])[0]+1;
             int c = num[1] - num[0] + 1;
-            char to = (char)(65 + x);
-            string result = "A1:" + to.ToString() + c;
+            string end = ColumnIndex.FirstOrDefault(q => q.Value == x).Key;
+            string result = "A1:" + end + c;
             return result;
         }
         public void GetConfig()
         {
-            string xmladdress = string.Format(@"{0}\config.xml", exeaddress);
+            string xmladdress = string.Format(@"{0}Excel Compare.xml", exeaddress);
             XmlDocument doc = new XmlDocument();
             XmlReaderSettings settings = new XmlReaderSettings
             {
@@ -873,15 +818,19 @@ namespace ExcelCompare
                 XmlNode HeadAreaNode = doc.SelectSingleNode("Config/HeadAreas");
                 XmlNode KeyColumnNode = doc.SelectSingleNode("Config/KeyColumns");
                 XmlNode IgnoreColumnNode = doc.SelectSingleNode("Config/IgnoreColumns");
+                XmlNode SavePathNode = doc.SelectSingleNode("Config/SavePath");
+                XmlNode ColumnIndexsNode = doc.SelectSingleNode("Config/ColumnIndexs");
                 GetItems(IgnoreColumnNode, ignorecolumncollection);
                 GetItems(HeadAreaNode, headareacollection);
                 GetItems(KeyColumnNode, keycolumncollection);
+                GetColumnIndex(ColumnIndexsNode, ColumnIndex);
+                SaveFolder.Text = SavePathNode.InnerText;
                 reader.Close();
             }
             catch
             {
 
-                MessageBox.Show(exeaddress + "下Config.xml配置文件丢失！,单击确认生成默认Config.xml", "Warning", MessageBoxButton.OK);
+                MessageBox.Show(exeaddress + "下Excel Compare.xml.xml配置文件丢失！,单击确认生成默认Excel Compare.xml.xml", "Warning", MessageBoxButton.OK);
                 string xml = string.Format(@"<Config>
                                                   <HeadAreas>
                                                     <HeadArea>A7:Y10</HeadArea>
@@ -895,6 +844,87 @@ namespace ExcelCompare
                                                     <IgnoreColumn>A</IgnoreColumn>
                                                     <IgnoreColumn></IgnoreColumn>
                                                   </IgnoreColumns>
+                                                  <SavePath>C:\</SavePath>
+                                                    <ColumnIndexs>
+                                                    <ColumnIndex name='A'>1</ColumnIndex>
+                                                    <ColumnIndex name='B'>2</ColumnIndex>
+                                                    <ColumnIndex name='C'>3</ColumnIndex>
+                                                    <ColumnIndex name='D'>4</ColumnIndex>
+                                                    <ColumnIndex name='E'>5</ColumnIndex>
+                                                    <ColumnIndex name='F'>6</ColumnIndex>
+                                                    <ColumnIndex name='G'>7</ColumnIndex>
+                                                    <ColumnIndex name='H'>8</ColumnIndex>
+                                                    <ColumnIndex name='I'>9</ColumnIndex>
+                                                    <ColumnIndex name='J'>10</ColumnIndex>
+                                                    <ColumnIndex name='K'>11</ColumnIndex>
+                                                    <ColumnIndex name='L'>12</ColumnIndex>
+                                                    <ColumnIndex name='M'>13</ColumnIndex>
+                                                    <ColumnIndex name='N'>14</ColumnIndex>
+                                                    <ColumnIndex name='O'>15</ColumnIndex>
+                                                    <ColumnIndex name='P'>16</ColumnIndex>
+                                                    <ColumnIndex name='Q'>17</ColumnIndex>
+                                                    <ColumnIndex name='R'>18</ColumnIndex>
+                                                    <ColumnIndex name='S'>19</ColumnIndex>
+                                                    <ColumnIndex name='T'>20</ColumnIndex>
+                                                    <ColumnIndex name='U'>21</ColumnIndex>
+                                                    <ColumnIndex name='V'>22</ColumnIndex>
+                                                    <ColumnIndex name='W'>23</ColumnIndex>
+                                                    <ColumnIndex name='X'>24</ColumnIndex>
+                                                    <ColumnIndex name='Y'>25</ColumnIndex>
+                                                    <ColumnIndex name='Z'>26</ColumnIndex>
+                                                    <ColumnIndex name='AA'>27</ColumnIndex>
+                                                    <ColumnIndex name='AB'>28</ColumnIndex>
+                                                    <ColumnIndex name='AC'>29</ColumnIndex>
+                                                    <ColumnIndex name='AD'>30</ColumnIndex>
+                                                    <ColumnIndex name='AE'>31</ColumnIndex>
+                                                    <ColumnIndex name='AF'>32</ColumnIndex>
+                                                    <ColumnIndex name='AG'>33</ColumnIndex>
+                                                    <ColumnIndex name='AH'>34</ColumnIndex>
+                                                    <ColumnIndex name='AI'>35</ColumnIndex>
+                                                    <ColumnIndex name='AJ'>36</ColumnIndex>
+                                                    <ColumnIndex name='AK'>37</ColumnIndex>
+                                                    <ColumnIndex name='AL'>38</ColumnIndex>
+                                                    <ColumnIndex name='AM'>39</ColumnIndex>
+                                                    <ColumnIndex name='AN'>40</ColumnIndex>
+                                                    <ColumnIndex name='AO'>41</ColumnIndex>
+                                                    <ColumnIndex name='AP'>42</ColumnIndex>
+                                                    <ColumnIndex name='AQ'>43</ColumnIndex>
+                                                    <ColumnIndex name='AR'>44</ColumnIndex>
+                                                    <ColumnIndex name='AS'>45</ColumnIndex>
+                                                    <ColumnIndex name='AT'>46</ColumnIndex>
+                                                    <ColumnIndex name='AU'>47</ColumnIndex>
+                                                    <ColumnIndex name='AV'>48</ColumnIndex>
+                                                    <ColumnIndex name='AW'>49</ColumnIndex>
+                                                    <ColumnIndex name='AX'>50</ColumnIndex>
+                                                    <ColumnIndex name='AY'>51</ColumnIndex>
+                                                    <ColumnIndex name='AZ'>52</ColumnIndex>
+                                                    <ColumnIndex name='BA'>53</ColumnIndex>
+                                                    <ColumnIndex name='BB'>54</ColumnIndex>
+                                                    <ColumnIndex name='BC'>55</ColumnIndex>
+                                                    <ColumnIndex name='BD'>56</ColumnIndex>
+                                                    <ColumnIndex name='BE'>57</ColumnIndex>
+                                                    <ColumnIndex name='BF'>58</ColumnIndex>
+                                                    <ColumnIndex name='BG'>59</ColumnIndex>
+                                                    <ColumnIndex name='BH'>60</ColumnIndex>
+                                                    <ColumnIndex name='BI'>61</ColumnIndex>
+                                                    <ColumnIndex name='BJ'>62</ColumnIndex>
+                                                    <ColumnIndex name='BK'>63</ColumnIndex>
+                                                    <ColumnIndex name='BL'>64</ColumnIndex>
+                                                    <ColumnIndex name='BM'>65</ColumnIndex>
+                                                    <ColumnIndex name='BN'>66</ColumnIndex>
+                                                    <ColumnIndex name='BO'>67</ColumnIndex>
+                                                    <ColumnIndex name='BP'>68</ColumnIndex>
+                                                    <ColumnIndex name='BQ'>69</ColumnIndex>
+                                                    <ColumnIndex name='BR'>70</ColumnIndex>
+                                                    <ColumnIndex name='BS'>71</ColumnIndex>
+                                                    <ColumnIndex name='BT'>72</ColumnIndex>
+                                                    <ColumnIndex name='BU'>73</ColumnIndex>
+                                                    <ColumnIndex name='BV'>74</ColumnIndex>
+                                                    <ColumnIndex name='BW'>75</ColumnIndex>
+                                                    <ColumnIndex name='BX'>76</ColumnIndex>
+                                                    <ColumnIndex name='BY'>77</ColumnIndex>
+                                                    <ColumnIndex name='BZ'>78</ColumnIndex>
+                                                    </ColumnIndexs>
                                              </Config>");
                 doc.LoadXml(xml);
                 doc.Save(xmladdress);
@@ -913,9 +943,17 @@ namespace ExcelCompare
                 oc.Add(xe.InnerText.ToString());
             }
         }
+        public void GetColumnIndex(XmlNode xn, Dictionary<string, int> lcol)
+        {
+            XmlNodeList xnl = xn.ChildNodes;
+            foreach (XmlElement xe in xnl)
+            {
+                lcol.Add(xe.GetAttribute("name"), Convert.ToInt32(xe.InnerText));
+            }
+        }
         public void SaveConfig()
         {
-            string xmladdress = string.Format(@"{0}config.xml", exeaddress);
+            string xmladdress = string.Format(@"{0}Excel Compare.xml", exeaddress);
 
             if (File.Exists(xmladdress))
             {
@@ -924,16 +962,22 @@ namespace ExcelCompare
             XmlDocument doc = new XmlDocument();
 
             string strheadarea = string.Empty;
-            foreach (string item in headareacollection)
+            List<string> temp = new List<string>(headareacollection);
+            temp.Sort();
+            foreach (string item in temp)
             {
                 strheadarea += string.Format("<HeadArea>{0}</HeadArea>", item);
             }
             string strkeycolumn = string.Empty;
-            foreach (string item in keycolumncollection)
+            temp = new List<string>(keycolumncollection);
+            temp.Sort();
+            foreach (string item in temp)
             {
                 strkeycolumn += string.Format("<KeyColumn>{0}</KeyColumn>", item);
             }
             string strignorecolumn = string.Empty;
+            temp = new List<string>(ignorecolumncollection);
+            temp.Sort();
             foreach (string item in ignorecolumncollection)
             {
                 strignorecolumn += string.Format("<IgnoreColumn>{0}</IgnoreColumn>", item);
@@ -945,7 +989,88 @@ namespace ExcelCompare
                                                   </KeyColumns>
                                                   <IgnoreColumns>{2}
                                                   </IgnoreColumns>
-                                             </Config>", strheadarea, strkeycolumn, strignorecolumn);
+                                                    <SavePath>{3}</SavePath>
+<ColumnIndexs>
+                                                    <ColumnIndex name='A'>1</ColumnIndex>
+                                                    <ColumnIndex name='B'>2</ColumnIndex>
+                                                    <ColumnIndex name='C'>3</ColumnIndex>
+                                                    <ColumnIndex name='D'>4</ColumnIndex>
+                                                    <ColumnIndex name='E'>5</ColumnIndex>
+                                                    <ColumnIndex name='F'>6</ColumnIndex>
+                                                    <ColumnIndex name='G'>7</ColumnIndex>
+                                                    <ColumnIndex name='H'>8</ColumnIndex>
+                                                    <ColumnIndex name='I'>9</ColumnIndex>
+                                                    <ColumnIndex name='J'>10</ColumnIndex>
+                                                    <ColumnIndex name='K'>11</ColumnIndex>
+                                                    <ColumnIndex name='L'>12</ColumnIndex>
+                                                    <ColumnIndex name='M'>13</ColumnIndex>
+                                                    <ColumnIndex name='N'>14</ColumnIndex>
+                                                    <ColumnIndex name='O'>15</ColumnIndex>
+                                                    <ColumnIndex name='P'>16</ColumnIndex>
+                                                    <ColumnIndex name='Q'>17</ColumnIndex>
+                                                    <ColumnIndex name='R'>18</ColumnIndex>
+                                                    <ColumnIndex name='S'>19</ColumnIndex>
+                                                    <ColumnIndex name='T'>20</ColumnIndex>
+                                                    <ColumnIndex name='U'>21</ColumnIndex>
+                                                    <ColumnIndex name='V'>22</ColumnIndex>
+                                                    <ColumnIndex name='W'>23</ColumnIndex>
+                                                    <ColumnIndex name='X'>24</ColumnIndex>
+                                                    <ColumnIndex name='Y'>25</ColumnIndex>
+                                                    <ColumnIndex name='Z'>26</ColumnIndex>
+                                                    <ColumnIndex name='AA'>27</ColumnIndex>
+                                                    <ColumnIndex name='AB'>28</ColumnIndex>
+                                                    <ColumnIndex name='AC'>29</ColumnIndex>
+                                                    <ColumnIndex name='AD'>30</ColumnIndex>
+                                                    <ColumnIndex name='AE'>31</ColumnIndex>
+                                                    <ColumnIndex name='AF'>32</ColumnIndex>
+                                                    <ColumnIndex name='AG'>33</ColumnIndex>
+                                                    <ColumnIndex name='AH'>34</ColumnIndex>
+                                                    <ColumnIndex name='AI'>35</ColumnIndex>
+                                                    <ColumnIndex name='AJ'>36</ColumnIndex>
+                                                    <ColumnIndex name='AK'>37</ColumnIndex>
+                                                    <ColumnIndex name='AL'>38</ColumnIndex>
+                                                    <ColumnIndex name='AM'>39</ColumnIndex>
+                                                    <ColumnIndex name='AN'>40</ColumnIndex>
+                                                    <ColumnIndex name='AO'>41</ColumnIndex>
+                                                    <ColumnIndex name='AP'>42</ColumnIndex>
+                                                    <ColumnIndex name='AQ'>43</ColumnIndex>
+                                                    <ColumnIndex name='AR'>44</ColumnIndex>
+                                                    <ColumnIndex name='AS'>45</ColumnIndex>
+                                                    <ColumnIndex name='AT'>46</ColumnIndex>
+                                                    <ColumnIndex name='AU'>47</ColumnIndex>
+                                                    <ColumnIndex name='AV'>48</ColumnIndex>
+                                                    <ColumnIndex name='AW'>49</ColumnIndex>
+                                                    <ColumnIndex name='AX'>50</ColumnIndex>
+                                                    <ColumnIndex name='AY'>51</ColumnIndex>
+                                                    <ColumnIndex name='AZ'>52</ColumnIndex>
+                                                    <ColumnIndex name='BA'>53</ColumnIndex>
+                                                    <ColumnIndex name='BB'>54</ColumnIndex>
+                                                    <ColumnIndex name='BC'>55</ColumnIndex>
+                                                    <ColumnIndex name='BD'>56</ColumnIndex>
+                                                    <ColumnIndex name='BE'>57</ColumnIndex>
+                                                    <ColumnIndex name='BF'>58</ColumnIndex>
+                                                    <ColumnIndex name='BG'>59</ColumnIndex>
+                                                    <ColumnIndex name='BH'>60</ColumnIndex>
+                                                    <ColumnIndex name='BI'>61</ColumnIndex>
+                                                    <ColumnIndex name='BJ'>62</ColumnIndex>
+                                                    <ColumnIndex name='BK'>63</ColumnIndex>
+                                                    <ColumnIndex name='BL'>64</ColumnIndex>
+                                                    <ColumnIndex name='BM'>65</ColumnIndex>
+                                                    <ColumnIndex name='BN'>66</ColumnIndex>
+                                                    <ColumnIndex name='BO'>67</ColumnIndex>
+                                                    <ColumnIndex name='BP'>68</ColumnIndex>
+                                                    <ColumnIndex name='BQ'>69</ColumnIndex>
+                                                    <ColumnIndex name='BR'>70</ColumnIndex>
+                                                    <ColumnIndex name='BS'>71</ColumnIndex>
+                                                    <ColumnIndex name='BT'>72</ColumnIndex>
+                                                    <ColumnIndex name='BU'>73</ColumnIndex>
+                                                    <ColumnIndex name='BV'>74</ColumnIndex>
+                                                    <ColumnIndex name='BW'>75</ColumnIndex>
+                                                    <ColumnIndex name='BX'>76</ColumnIndex>
+                                                    <ColumnIndex name='BY'>77</ColumnIndex>
+                                                    <ColumnIndex name='BZ'>78</ColumnIndex>
+                                                    </ColumnIndexs>
+                                             </Config>", strheadarea, strkeycolumn, strignorecolumn,savepath);
             doc.LoadXml(xml);
             doc.Save(xmladdress);
         }
@@ -1069,11 +1194,11 @@ namespace ExcelCompare
                             SaveFolder.Text = m_Dialog.SelectedPath.Trim();
                         }
                         break;
-                    case "Data Area":
-                        datbv.VisibilityP = Visibility.Visible;
-                        dacbv.VisibilityP = Visibility.Collapsed;
-                        DataAreaBox.Focus();
-                        break;
+                    //case "Data Area":
+                    //    datbv.VisibilityP = Visibility.Visible;
+                    //    dacbv.VisibilityP = Visibility.Collapsed;
+                    //    DataAreaBox.Focus();
+                    //    break;
                 }
 
             }
@@ -1105,11 +1230,11 @@ namespace ExcelCompare
                         iccbv.VisibilityP = Visibility.Visible;
                         CheckNewItem(ref ignorecolumncollection, TextBoxItem.Text,IgnoreColumnCombo);
                         break;
-                    case "DataAreaBox":
-                        datbv.VisibilityP = Visibility.Collapsed;
-                        dacbv.VisibilityP = Visibility.Visible;
-                        CheckNewItem(ref dataareacollection, TextBoxItem.Text, DataAreaCombo);
-                        break;
+                    //case "DataAreaBox":
+                    //    datbv.VisibilityP = Visibility.Collapsed;
+                    //    dacbv.VisibilityP = Visibility.Visible;
+                    //    CheckNewItem(ref dataareacollection, TextBoxItem.Text, DataAreaCombo);
+                    //    break;
                 }
 
             }
@@ -1145,93 +1270,7 @@ namespace ExcelCompare
             tb.Focus();
         }
     }
-    public class Pipeinfo
-    {
-        public string Temp { get; set; }
-        public string NO { get; set; }
-        public string LINE_NO { get; set; }
-        public string NOMINALDIA { get; set; }
-        public string PIPINGCLASS { get; set; }
-        public string PID_NO { get; set; }
-        public string FLUID_NAME { get; set; }
-        public string FLUIDSTATE { get; set; }
-        public string FROMPoint { get; set; }
-        public string TOPoint { get; set; }
-        public string OptionPRESS { get; set; }
-        public string OptionTEMP { get; set; }
-        public string DesignPRESS { get; set; }
-        public string DesignTEMP { get; set; }
-        public string FLUID { get; set; }
-        public string TestPRESS { get; set; }
-        public string PURPOSE { get; set; }
-        public string THICKNESS { get; set; }
-        public string TRACING_ORJACKET { get; set; }
-        public string PIPECATEGORY { get; set; }
-        public string PRESS { get; set; }
-        public string IS_STEAMFLUSHING { get; set; }
-        public string ISCYCLIC { get; set; }
-        public string OTHERREQMT { get; set; }
-        public string REMARKS { get; set; }
-        public string REV { get; set; }
-        public Pipeinfo(Pipeinfo temp)
-        {
-            this.Temp = temp.Temp;
-            this.NO = temp.NO;
-            this.LINE_NO = temp.LINE_NO;
-            this.NOMINALDIA = temp.NOMINALDIA;
-            this.PIPINGCLASS = temp.PIPINGCLASS;
-            this.PID_NO = temp.PID_NO;
-            this.FLUID_NAME = temp.FLUID_NAME;
-            this.FLUIDSTATE = temp.FLUIDSTATE;
-            this.FROMPoint = temp.FROMPoint;
-            this.TOPoint = temp.TOPoint;
-            this.OptionPRESS = temp.OptionPRESS;
-            this.OptionTEMP = temp.OptionTEMP;
-            this.DesignPRESS = temp.DesignPRESS;
-            this.DesignTEMP = temp.DesignTEMP;
-            this.FLUID = temp.FLUID;
-            this.TestPRESS = temp.TestPRESS;
-            this.PURPOSE = temp.PURPOSE;
-            this.THICKNESS = temp.THICKNESS;
-            this.TRACING_ORJACKET = temp.TRACING_ORJACKET;
-            this.PIPECATEGORY = temp.PIPECATEGORY;
-            this.PRESS = temp.PRESS;
-            this.IS_STEAMFLUSHING = temp.IS_STEAMFLUSHING;
-            this.ISCYCLIC = temp.ISCYCLIC;
-            this.OTHERREQMT = temp.OTHERREQMT;
-            this.REMARKS = temp.REMARKS;
-            this.REV = temp.REV;
-        }
-        public Pipeinfo()
-        {
-            this.Temp = "";
-            this.NO = "";
-            this.LINE_NO = "";
-            this.NOMINALDIA = "";
-            this.PIPINGCLASS = "";
-            this.PID_NO = "";
-            this.FLUID_NAME = "";
-            this.FLUIDSTATE = "";
-            this.FROMPoint = "";
-            this.TOPoint = "";
-            this.OptionPRESS = "";
-            this.OptionTEMP = "";
-            this.DesignPRESS = "";
-            this.DesignTEMP = "";
-            this.FLUID = "";
-            this.TestPRESS = "";
-            this.PURPOSE = "";
-            this.THICKNESS = "";
-            this.TRACING_ORJACKET = "";
-            this.PIPECATEGORY = "";
-            this.PRESS = "";
-            this.IS_STEAMFLUSHING = "";
-            this.ISCYCLIC = "";
-            this.OTHERREQMT = "";
-            this.REMARKS = "";
-            this.REV = "";
-        }
-    }
+
 
     public class TextBoxVisibility:INotifyPropertyChanged
     {
