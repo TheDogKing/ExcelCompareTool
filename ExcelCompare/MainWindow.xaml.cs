@@ -26,6 +26,7 @@ using System.Runtime.InteropServices;
 using System.Diagnostics;
 using System.IO;
 using System.Windows.Input;
+using Microsoft.VisualBasic;
 
 namespace ExcelCompare
 {
@@ -35,11 +36,9 @@ namespace ExcelCompare
     public  partial class MainWindow : Window
     {
         TextBoxVisibility hatbv;
-        //TextBoxVisibility datbv;
         TextBoxVisibility kctbv;
         TextBoxVisibility ictbv;
         ComboBoxiVisibility hacbv;
-        //ComboBoxiVisibility dacbv;
         ComboBoxiVisibility kccbv;
         ComboBoxiVisibility iccbv;
         public string exeaddress = AppDomain.CurrentDomain.BaseDirectory;
@@ -47,7 +46,6 @@ namespace ExcelCompare
         public string openfileaddr = AppDomain.CurrentDomain.BaseDirectory;
         public ObservableCollection<string> ignorecolumncollection = new ObservableCollection<string>();
         public ObservableCollection<string> dataareacollection = new ObservableCollection<string>();
-        //public ObservableCollection<string> targetsheetcolumncollection = new ObservableCollection<string>();
         public ObservableCollection<string> old_excelsheetcollection = new ObservableCollection<string>();
         public ObservableCollection<string> new_excelsheetcollection = new ObservableCollection<string>();
         public ObservableCollection<string> keycolumncollection = new ObservableCollection<string>();
@@ -65,7 +63,6 @@ namespace ExcelCompare
         public string address = "";
 
         private BackgroundWorker bw = new BackgroundWorker();
-        //public Progress progressbar;
         public int headareaheight = 0;
         public Regex regex = new Regex("[a-zA-Z]+");
         public Regex intregex = new Regex("[0-9]+");
@@ -90,6 +87,7 @@ namespace ExcelCompare
         }
         private void BGWorker_DoWork(object sender, DoWorkEventArgs e)
         {
+            string savefilepath = string.Empty;
             int progresscount = 0;
             //在这里执行耗时的运算。
             //(string)e.Argument == "参数";
@@ -104,8 +102,6 @@ namespace ExcelCompare
             {
                 bw.ReportProgress(progresscount);
                 IsFinish = false;
-                //OldExcelSheetCombo.SelectedIndex = selectindex;
-                //NewExcelSheetCombo.SelectedIndex = selectindex;
                 if (sheetlist[selectindex].Equals("首页"))
                 {
                     progresscount += 3*peervalue;
@@ -120,8 +116,6 @@ namespace ExcelCompare
                     Func<string, string, DataTable> func = GetDataTable;
                     IAsyncResult newref = func.BeginInvoke(ok.NewAdd, targetsheet, null, null);
                     IAsyncResult oldref = func.BeginInvoke(ok.OldAdd, targetsheet, null, null);
-                    //oldadd.DataContext = "";
-                    //newadd.DataContext = "";
                     DataTable newdata = func.EndInvoke(newref);
                     DataTable olddata = func.EndInvoke(oldref);
                     progresscount += peervalue;
@@ -144,16 +138,13 @@ namespace ExcelCompare
                         count++;
                         if (count >= 3)
                         {
-                            string savefile = string.Empty;
-                            savefile = savepath + "\\" + targetsheet + "_result.xlsx";
-                            if (System.IO.File.Exists(savefile))
+                            savefilepath = savepath + "\\" + targetsheet + "_result.xlsx";
+                            if (System.IO.File.Exists(savefilepath))
                             {
-                                System.IO.File.Delete(savefile);
+                                System.IO.File.Delete(savefilepath);
                             }
-                            workbook.SaveAs(savefile, Missing.Value, Missing.Value, Missing.Value, Missing.Value, Missing.Value, Excel.XlSaveAsAccessMode.xlNoChange, Missing.Value, Missing.Value, Missing.Value, Missing.Value, Missing.Value);
+                            workbook.SaveAs(savefilepath, Missing.Value, Missing.Value, Missing.Value, Missing.Value, Missing.Value, Excel.XlSaveAsAccessMode.xlNoChange, Missing.Value, Missing.Value, Missing.Value, Missing.Value, Missing.Value);
                             workbook.Close(true);
-                            //Ok.KillExcelApp(excelapp);
-                            //Ok.KillExcelApp(excelapphead);
                             progresscount += peervalue;
                             bw.ReportProgress(progresscount);
                             Console.WriteLine("AllEnd" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
@@ -178,10 +169,11 @@ namespace ExcelCompare
                     IAsyncResult sheet2 = PrintThread.BeginInvoke(worksheets[1], result[1], false, IsEnd, null);
                     IAsyncResult sheet3 = PrintThread.BeginInvoke(worksheets[2], result[2], true, IsEnd, null);
                     PrintThread.EndInvoke(sheet1);
+                    Thread.Sleep(1000);
                     PrintThread.EndInvoke(sheet2);
+                    Thread.Sleep(1000);
                     PrintThread.EndInvoke(sheet3);
-                    Thread.Sleep(3000);
-                    Clipboard.Clear();
+                    Thread.Sleep(1000);
                 }
                 catch (Exception ex)
                 {
@@ -202,11 +194,11 @@ namespace ExcelCompare
             ExcelMgr.KillExcelApp(excelapphead);
             ExcelMgr.KillExcelApp(excelapp);
             bw.ReportProgress(100);
-            MessageBox.Show("结果文件生成在" + savepath, "成功", MessageBoxButton.OK);
+            MessageBox.Show("结果文件生成在" + savefilepath, "成功", MessageBoxButton.OK,MessageBoxImage.Information);
         }
         public void BgWorker_ProgessChanged(object sender, ProgressChangedEventArgs e)
         {
-            progressLabel.Content = "1";
+            progressLabel.Content =string.Format("当前进度{0}%",e.ProgressPercentage);
             for (int i= (int)progressbar.Value; i<=e.ProgressPercentage;i++)
             {
                 Thread.Sleep(10);
@@ -236,9 +228,7 @@ namespace ExcelCompare
 
         public void BindComboBox()
         {
-            //hacbv = new ComboBoxiVisibility();
             BindingOperations.SetBinding(HeadAreaCombo, ComboBox.VisibilityProperty, new Binding("VisibilityP") { Source=hacbv= new ComboBoxiVisibility()});
-            //BindingOperations.SetBinding(DataAreaCombo, ComboBox.VisibilityProperty, new Binding("VisibilityP") { Source=dacbv= new ComboBoxiVisibility()});
             BindingOperations.SetBinding(IgnoreColumnCombo, ComboBox.VisibilityProperty, new Binding("VisibilityP") { Source = iccbv = new ComboBoxiVisibility()});
             BindingOperations.SetBinding(KeyColumnCombo, ComboBox.VisibilityProperty, new Binding("VisibilityP") { Source = kccbv = new ComboBoxiVisibility()});
         }
@@ -249,12 +239,6 @@ namespace ExcelCompare
             habinding.Source = hatbv;
             habinding.Path = new PropertyPath("VisibilityP");
             BindingOperations.SetBinding(HeadAreaBox, TextBox.VisibilityProperty, habinding);
-
-            //datbv = new TextBoxVisibility();
-            //Binding dabinding = new Binding();
-            //dabinding.Source = datbv;
-            //dabinding.Path = new PropertyPath("VisibilityP");
-            //BindingOperations.SetBinding(DataAreaBox, TextBox.VisibilityProperty, dabinding);
 
             kctbv = new TextBoxVisibility();
             Binding kcbinding = new Binding();
@@ -521,12 +505,6 @@ namespace ExcelCompare
         }
         public DataTable GetDataTable(string path,string excelsheet)
         {
-            //List<int> keyCol = new List<int>(GetNum(keycolumn));
-            //string filtersql = string.Empty;
-            //foreach(int item in keyCol)
-            //{
-            //    filtersql += (filtersql == "") ? string.Format("F{0}", item) : string.Format("and F{0}", item);
-            //}
             Console.WriteLine("GetDataTable-start" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
             DataTable dt=new DataTable();
             string filetype = System.IO.Path.GetExtension(path);
@@ -579,10 +557,6 @@ namespace ExcelCompare
             Dictionary<string, List<string>> newitems = new Dictionary<string, List<string>>();
             Dictionary<string, List<string>> updateitems = new Dictionary<string, List<string>>();
             List<int> ignorelist = GetNum(ignorecolumn);
-            //for(int x=0;x<ignorelist.Count;x++)
-            //{
-            //    ignorelist[x] -= 65;
-            //}
             foreach (KeyValuePair<string,List<string>> item in oldtable)
             {
                 if (!newtable.ContainsKey(item.Key))
@@ -591,11 +565,6 @@ namespace ExcelCompare
                 }
                 else
                 {
-                    //Pipeinfo oldpipeinfo = (Pipeinfo)temp.Value;
-                    //Pipeinfo newpipeinfo = (Pipeinfo)newtable[temp.Key];
-                    //Pipeinfo updatepipeinfo = new Pipeinfo(newpipeinfo);
-                    //PropertyInfo[] oldproperties = oldpipeinfo.GetType().GetProperties();
-                    //PropertyInfo[] newproperties = newpipeinfo.GetType().GetProperties();
                     List<string> olditeminfo = item.Value;
                     List<string> newiteminfo = newtable[item.Key];
                     List<string> updateinfo = new List<string>(newiteminfo);
@@ -731,16 +700,17 @@ namespace ExcelCompare
             //先拷贝一份表头
             Excel.Workbook workbookhead;
             workbookhead = excelapphead.Workbooks.Open(address);
+            //excelapphead.dis
+            excelapphead.DisplayClipboardWindow = false;
             try
             {
                 Excel.Worksheet worksheethead = new Excel.Worksheet();
                 worksheethead = workbookhead.Sheets[targetsheet];
-                //string selectitem = HeadArea.Items.CurrentItem.ToString();
                 headarea = headarea.Split(';')[0];
                 worksheethead.Activate();
                 Excel.Range ran = worksheethead.Range[headarea];
                 ran.Copy();
-                Thread.Sleep(10000);
+                Thread.Sleep(5000);
                 foreach (Excel.Worksheet worksheet in worksheets)
                 {
                     worksheet.Activate();
@@ -749,6 +719,8 @@ namespace ExcelCompare
                     //worksheet.PasteSpecial("文本",false,false);
                     newran.PasteSpecial(Excel.XlPasteType.xlPasteFormats, Excel.XlPasteSpecialOperation.xlPasteSpecialOperationAdd, Type.Missing, Type.Missing);
                 }
+                 ran = worksheethead.Range["A1:B1"];
+                ran.Copy();
             }
             catch (Exception ex)
             {
@@ -814,7 +786,6 @@ namespace ExcelCompare
             {
                 XmlReader reader = XmlReader.Create(xmladdress, settings);
                 doc.Load(reader);
-                //XmlNode TargetSheets = doc.SelectSingleNode("Config/TargetSheets");
                 XmlNode HeadAreaNode = doc.SelectSingleNode("Config/HeadAreas");
                 XmlNode KeyColumnNode = doc.SelectSingleNode("Config/KeyColumns");
                 XmlNode IgnoreColumnNode = doc.SelectSingleNode("Config/IgnoreColumns");
@@ -1230,11 +1201,6 @@ namespace ExcelCompare
                         iccbv.VisibilityP = Visibility.Visible;
                         CheckNewItem(ref ignorecolumncollection, TextBoxItem.Text,IgnoreColumnCombo);
                         break;
-                    //case "DataAreaBox":
-                    //    datbv.VisibilityP = Visibility.Collapsed;
-                    //    dacbv.VisibilityP = Visibility.Visible;
-                    //    CheckNewItem(ref dataareacollection, TextBoxItem.Text, DataAreaCombo);
-                    //    break;
                 }
 
             }
